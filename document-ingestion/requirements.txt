@@ -1,0 +1,26 @@
+# Flask and web framework
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# PDF processing
+PyPDF2==3.0.1
+
+# HTTP requests
+requests==2.31.0
+
+# Google Cloud AI Platform for embeddings
+google-cloud-aiplatform
+
+# Google authentication
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+
+# Database
+Flask-SQLAlchemy==3.1.1
+psycopg2-binary==2.9.7
+pgvector==0.2.4
+
+# Additional dependencies
+python-dotenv==1.0.0
+NLTK==3.8.1

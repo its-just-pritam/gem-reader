@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: pgvector/pgvector:0.6.0-pg16
+    container_name: gem_reader_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gem_reader
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gem_reader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # app:
+  #   build: .
+  #   container_name: gem_reader_app
+  #   ports:
+  #     - "5000:5000"
+  #   environment:
+  #     DATABASE_URL: postgresql://postgres:postgres@db:5432/gem_reader
+  #     GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+  #     GCP_LOCATION: ${GCP_LOCATION}
+  #     GCP_ENDPOINT_ID: ${GCP_ENDPOINT_ID}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   volumes:
+  #     - .:/app
+  #   command: python app.py
+
+volumes:
+  postgres_data:
