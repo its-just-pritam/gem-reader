@@ -106,7 +106,9 @@ def embed_from_url():
                 page_number=item['page_number'],
                 keywords=item['keywords'],
                 queries=item['queries'],
-                tags=item['tags']
+                tags=item['tags'],
+                url=url,
+                user_id=0
             )
             db.session.add(chunk_record)
         db.session.commit()

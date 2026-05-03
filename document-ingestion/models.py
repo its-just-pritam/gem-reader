@@ -22,6 +22,8 @@ class Embedding(db.Model):
     keywords = db.Column(JSON)  # List of keywords
     queries = db.Column(JSON)   # List of queries
     tags = db.Column(JSON)      # List of tags
+    url = db.Column(db.String(2048))  # URL of the source PDF
+    user_id = db.Column(db.String(255))  # Optional: to associate with a user
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def __repr__(self):
