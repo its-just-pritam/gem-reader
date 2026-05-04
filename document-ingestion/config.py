@@ -21,6 +21,8 @@ GCP_CONFIG = {
     "LOCATION": os.getenv("GCP_LOCATION", "asia-south1"),
     "ENDPOINT_ID": os.getenv("GCP_ENDPOINT_ID", "mg-endpoint-25701b72-8e96-47d7-a08c-c9856ada9301"),  # Replace "YOUR_ENDPOINT_ID"
     "DEDICATED_DOMAIN": "mg-endpoint-25701b72-8e96-47d7-a08c-c9856ada9301.asia-south1-788531557962.prediction.vertexai.goog",
+    "MODEL_DISPLAY_NAME": "embeddinggemma-300m-1777627519039",
+    "MODEL_ID": "937648123004583936",
     "DB_INSTANCE": "gem-reader-vector-metadata-store",
 }
 

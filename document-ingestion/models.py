@@ -11,8 +11,8 @@ class Embedding(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     model = db.Column(db.String(255))
-    model_id = db.Column(db.String(255))
-    model_display_name = db.Column(db.String(255))
+    model_id = db.Column(db.String(255), index=True)
+    model_display_name = db.Column(db.String(255), index=True)
     model_version = db.Column(db.String(255))
     text = db.Column(db.Text)
     embedding = db.Column(Vector(768))  # Assuming 768 dimensions for Gemma embeddings
@@ -22,8 +22,8 @@ class Embedding(db.Model):
     keywords = db.Column(JSON)  # List of keywords
     queries = db.Column(JSON)   # List of queries
     tags = db.Column(JSON)      # List of tags
-    url = db.Column(db.String(2048))  # URL of the source PDF
-    user_id = db.Column(db.String(255))  # Optional: to associate with a user
+    url = db.Column(db.String(2048), index=True)  # URL of the source PDF
+    user_id = db.Column(db.String(255), index=True)  # Optional: to associate with a user
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def __repr__(self):

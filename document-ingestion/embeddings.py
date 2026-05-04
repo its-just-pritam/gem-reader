@@ -6,7 +6,7 @@ using Google Cloud's VertexAI Embedding Gemma model.
 """
 
 import os
-from typing import List, Dict
+from typing import List, Dict, Any
 import PyPDF2
 from google.cloud import aiplatform
 from google.oauth2 import service_account
@@ -28,7 +28,7 @@ class PDFEmbeddingGenerator:
             print(f"------- Error initializing embedding model: {e}")
             
 
-    def generate_embeddings(self, text_chunks: List[str]) -> List[List[float]]:
+    def generate_embeddings(self, text_chunks: List[str]) -> Dict[str, Any]:
 
         # Automatically get credentials (equivalent to gcloud auth print-access-token)
         # This looks for credentials set by 'gcloud auth application-default login'
@@ -36,30 +36,53 @@ class PDFEmbeddingGenerator:
         auth_request = google.auth.transport.requests.Request()
         credentials.refresh(auth_request)
 
+        batch_size = 40  # Process in batches to avoid 413 errors and payload limits
+        final_result = {}
+        all_predictions = []
+
         try:
-            print(f"+++++++ Generating embeddings for {len(text_chunks)} chunks...")
-            response = requests.post(
-                self.embeddings_url,
-                headers={
-                    "Authorization": f"Bearer {credentials.token}",
-                    "Content-Type": "application/json"
-                }, 
-                json={
-                    "instances": [{"inputs": chunk} for chunk in text_chunks]
-                }
-            )
+            for i in range(0, len(text_chunks), batch_size):
+                batch = text_chunks[i:i+batch_size]
+                print(f"+++++++ Generating embeddings for batch {i//batch_size + 1} ({len(batch)} chunks)...")
+                
+                response = requests.post(
+                    self.embeddings_url,
+                    headers={
+                        "Authorization": f"Bearer {credentials.token}",
+                        "Content-Type": "application/json"
+                    }, 
+                    json={
+                        "instances": [{"inputs": chunk} for chunk in batch]
+                    }
+                )
+                
+                # Raise an exception if the request was unsuccessful
+                response.raise_for_status()
+                res_json = response.json()
+                
+                if not final_result:
+                    final_result = res_json
+                    all_predictions = res_json.get('predictions', [])
+                else:
+                    all_predictions.extend(res_json.get('predictions', []))
             
-            # Raise an exception if the request was unsuccessful (e.g., 400, 404, 500)
-            response.raise_for_status()
-            
-            print(f"+++++++ Received response from Gemma endpoint with status code: {response.status_code}")
-            result = response.json()
-            return result
+            final_result['predictions'] = all_predictions
+            return final_result
 
         except requests.exceptions.HTTPError as err:
             print(f"------- HTTP error occurred: {err}")
-            if response.text:
+            if 'response' in locals() and response.text:
                 print(f"------- Response Body: {response.text}")
+            raise
         except Exception as e:
             print(f"------- An unexpected error occurred\n{e}")
+            raise
+
+    def get_embedding_model_display_name(self) -> str:
+        """Return the display name for the embedding model."""
+        return GCP_CONFIG['MODEL_DISPLAY_NAME']
+
+    def get_embedding_model_id(self) -> str:
+        """Return the ID for the embedding model."""
+        return GCP_CONFIG['MODEL_ID']
         

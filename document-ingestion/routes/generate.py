@@ -7,15 +7,23 @@ This module contains endpoints for searching embeddings:
 
 from flask import Blueprint, request, jsonify
 from embeddings import PDFEmbeddingGenerator
+from vertexai.generative_models import GenerativeModel
 from sqlalchemy import text
 from database import db
+import vertexai
+import re
 
-search_bp = Blueprint("search", __name__)
+vertexai.init(project="gem-reader", location="asia-south1")
+
+generate_bp = Blueprint("generate", __name__)
 
 # Initialize the embedding generator
 embedding_generator = PDFEmbeddingGenerator()
 
-@search_bp.route("/search", methods=["POST"])
+# Initialize the LLM
+model = GenerativeModel("gemini-2.5-flash")
+
+@generate_bp.route("/generate", methods=["POST"])
 def vector_search():
     """
     API endpoint to perform vector search.
@@ -76,22 +84,45 @@ def vector_search():
                 search_query += " AND url = :url"
                 params['url'] = url_filter
 
-            search_query += " ORDER BY embedding <=> CAST(:query_vector AS vector) LIMIT 10"
+            search_query += " ORDER BY embedding <=> CAST(:query_vector AS vector) LIMIT 5"
 
             # Perform vector search in DB (cosine similarity)
             search_results = db.session.execute(text(search_query), params).fetchall()
             matches = [{
-                "id": row[0],
                 "text": row[1],
-                "page_number": row[2],
-                "keywords": row[3],
-                "similarity": float(row[4])
+                "page_number": row[2]
             } for row in search_results]
+
+            prompt = f"""
+            You are a helpful professor and expert. Use the following context to answer the user's question. 
+            If the answer isn't in the context, say you don't know. Be direct and simple in your response.
+            Try to explain your reasoning step by step and ask follow up questions if needed to clarify the user's intent.
+
+            Constraint: 
+            Max 200 words in the answer. If the answer is not found in the context, say "I don't know". 
+            Do not use any information that is not in the context. If the answer exceeds 200 words, ask the
+            user if they want to continue the answer in a follow-up response.
+
+            Format:
+            Markdown with headings, subheadings, examples, paragraphs, bullet points, code snippets, and tables as needed.
+            Use emojis to make it engaging.
+
+            Note:
+            The context may contain information from multiple pages of a PDF. 
+            Pay attention to the page numbers and use them to provide accurate references in your answer.
+
+            Context: 
+            {matches}
+
+            User Question: 
+            {query_text}
+            """
+
+            generated_response = model.generate_content(prompt)
 
             results.append({
                 "query": query_text,
-                "matches": matches,
-                "total": len(matches)
+                "answer": generated_response.text,
             })
 
         return jsonify({

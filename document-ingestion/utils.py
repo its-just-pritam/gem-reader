@@ -151,14 +151,14 @@ def extract_text_with_structure(pdf_path: str) -> List[Dict[str, str]]:
 
 
 def chunk_text_by_structure(
-    text_elements: List[Dict[str, str]], max_words: int = 800
+    text_elements: List[Dict[str, str]], max_words: int = 300
 ) -> tuple:
     """
     Chunk text with 20% overlap between consecutive chunks, ensuring at least one chunk per page.
 
     Args:
         text_elements: List of text elements with type, content, and page_num
-        max_words: Maximum words per chunk (default 800)
+        max_words: Maximum words per chunk (default 300)
 
     Returns:
         Tuple of (chunks, keywords, pages) where:

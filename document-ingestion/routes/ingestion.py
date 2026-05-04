@@ -40,6 +40,7 @@ def embed_from_url():
     """
     try:
         data = request.get_json()
+        train = request.args.get('train')
 
         if not data or "url" not in data:
             return jsonify({"error": "No URL provided in request"}), 400
@@ -48,6 +49,43 @@ def embed_from_url():
 
         if not url:
             return jsonify({"error": "URL cannot be empty"}), 400
+
+        print(f"+++++++Received request to ingest PDF from URL: {url} with train={train}")
+
+        # Check for skip cache parameter (e.g., /ingest/pdf?train=true)
+        skip_cache = True if (train and train.lower() == "true") else False
+
+        # Get current model info for cache check
+        current_model_id = embedding_generator.get_embedding_model_id()
+        current_model_name = embedding_generator.get_embedding_model_display_name()
+
+        # Return cached embeddings if the URL and model match
+        existing_records = Embedding.query.filter_by(
+            url=url,
+            model_id=current_model_id,
+            model_display_name=current_model_name
+        ).all() if not skip_cache else []
+
+        if existing_records:
+            print(f"+++++++Found {len(existing_records)} existing records for URL: {url}")
+            data = [
+                {
+                    "model": record.model,
+                    "model_id": record.model_id,
+                    "model_display_name": record.model_display_name,
+                    "model_version": record.model_version,
+                    "text": record.text,
+                    "embedding": [float(x) for x in record.embedding] if record.embedding is not None else None,
+                    "text_length": record.text_length,
+                    "embedding_length": record.embedding_length,
+                    "page_number": record.page_number,
+                    "keywords": record.keywords,
+                    "queries": record.queries,
+                    "tags": record.tags,
+                }
+                for record in existing_records
+            ]
+            return jsonify({"success": True, "url": url, "total": len(data), "data": data}), 200
 
         # Generate a temporary filename
         filename = "temp_" + str(hash(url))[-10:] + ".pdf"
@@ -65,7 +103,7 @@ def embed_from_url():
             return jsonify({"error": "No text extracted from PDF"}), 400
 
         # Chunk the text intelligently
-        chunks, keywords, pages = chunk_text_by_structure(text_elements, max_words=800)
+        chunks, keywords, pages = chunk_text_by_structure(text_elements, max_words=300)
         print(f"+++++++Extracted {len(text_elements)} text elements, created {len(chunks)} chunks.")
         print(f"+++++++Pages found: {pages}")
 
@@ -75,6 +113,10 @@ def embed_from_url():
 
         # Generate embeddings
         embeddings = embedding_generator.generate_embeddings(chunks)
+        
+        if not embeddings or 'predictions' not in embeddings:
+            return jsonify({"error": "Failed to generate embeddings: Model endpoint returned no data"}), 500
+            
         print(f"+++++++Generated {len(embeddings['predictions'])} embeddings for PDF at URL: {url}")
 
         data = [{
