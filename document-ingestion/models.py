@@ -28,3 +28,19 @@ class Embedding(db.Model):
 
     def __repr__(self):
         return f'<Embedding {self.id}>'
+
+class ChatHistory(db.Model):
+    __tablename__ = 'chat_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    parent_query_id = db.Column(db.Integer, db.ForeignKey('chat_history.id'), nullable=True)  # For threading conversations
+    query = db.Column(db.Text)
+    response = db.Column(db.Text)
+    embedding_model_id = db.Column(db.String(255))
+    embedding_model_display_name = db.Column(db.String(255))
+    url = db.Column(db.String(2048), index=True)  # Optional URL filter used during search
+    user_id = db.Column(db.String(255), index=True)  # Optional: to associate with a user
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    def __repr__(self):
+        return f'<ChatHistory {self.id}>'

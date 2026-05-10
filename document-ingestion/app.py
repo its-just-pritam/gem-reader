@@ -22,6 +22,7 @@ from routes.health import health_bp
 from routes.ingestion import ingestion_bp
 from routes.search import search_bp
 from routes.generate import generate_bp
+from routes.chat import chat_bp
 
 if __name__ == "__main__":
 
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     app.register_blueprint(ingestion_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(generate_bp)
+    app.register_blueprint(chat_bp)
 
     # Run the Flask app
     app.run(debug=True, host="0.0.0.0", port=5000)

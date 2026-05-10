@@ -3,7 +3,7 @@ Database migration utilities for manual SQL tasks and table creation.
 """
 from sqlalchemy import text
 from database import db
-from models import Embedding
+from models import Embedding, ChatHistory
 
 def run_migrations():
     """

@@ -1,21 +1,20 @@
 {
     "manifest_version": 3,
-    "name": "DeepReader",
+    "name": "Gem Reader",
     "version": "1.0",
-    "description": "Get a domain expert to help you study and test papers.",
+    "description": "Get a personal Gemini powered PDF Assistant.",
     "icons": {
         "16": "icons16.png",
         "48": "icons48.png",
         "128": "icons128.png"
     },
     "action": {
-        "default_icon": "icons16.png",
-        "default_popup": "popup.html"
+        "default_icon": "icons48.png"
     },
     "content_scripts": [
         {
             "matches": ["*://*/*.pdf", "*://*/*.PDF"],
-            "js": ["content.js"],
+            "js": ["marked.min.js", "content.js"],
             "run_at": "document_end"
         }
     ],
@@ -23,7 +22,13 @@
         "service_worker": "background.js"
     },
     "host_permissions": [
-        "https://webhook.site/*"
+        "http://localhost/*"
     ],
-    "permissions": ["activeTab"]
+    "permissions": ["activeTab", "storage"],
+    "web_accessible_resources": [
+        {
+            "resources": ["icons16.png", "icons48.png", "icons128.png"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }

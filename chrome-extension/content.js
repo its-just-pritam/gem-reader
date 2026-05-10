@@ -9,27 +9,6 @@ function isPDF() {
            window.location.pathname.endsWith('.pdf');
 }
 
-/**
- * A lightweight markdown parser to convert basic MD syntax to HTML.
- * Handles headers, bold, italics, code snippets, and simple lists.
- */
-function formatMarkdown(text) {
-    if (!text) return "";
-    return text
-        // Headers (using smaller heading tags for the chat UI)
-        .replace(/^### (.*$)/gim, '<h4 style="margin: 8px 0 4px; color: #333;">$1</h4>')
-        .replace(/^## (.*$)/gim, '<h5 style="margin: 10px 0 5px; color: #333;">$1</h5>')
-        .replace(/^# (.*$)/gim, '<h6 style="margin: 12px 0 6px; color: #333;">$1</h6>')
-        // Formatting
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        // Code and Lists
-        .replace(/`(.*?)`/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')
-        .replace(/^\s*[\-\*]\s+(.*)$/gim, '<div style="display: list-item; list-style-type: disc; margin-left: 20px; margin-bottom: 4px;">$1</div>')
-        // Line breaks
-        .replace(/\n/g, '<br>');
-}
-
 // Sends the current PDF URL to the webhook through the extension background worker
 function sendPdfUrlToWebhook(pdfUrl) {
     return new Promise((resolve) => {
@@ -56,7 +35,7 @@ function createInitialModal() {
         width: 280px;
         padding: 20px;
         background: #ffffff;
-        border-left: 5px solid #4A90E2;
+        border-left: 5px solid #c6384b;
         box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         z-index: 1000000;
         border-radius: 4px;
@@ -64,12 +43,14 @@ function createInitialModal() {
     `;
 
     modal.innerHTML = `
-        <div style="margin-bottom: 10px; font-weight: bold; color: #333;">Gem Reader: PDF! 📖</div>
+        <span style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 16px; font-weight: bold; color: #c6384b;">
+            <img src="${chrome.runtime.getURL('icons48.png')}" alt="Gem Reader" style="width: 24px; height: 24px;"> Gem Reader
+        </span>
         <div style="font-size: 13px; color: #666; margin-bottom: 15px;">
             I have detected that you're viewing a PDF. I can help you summarize the content as you read - please open the extension and get started!
         </div>
         <div style="display: flex; gap: 10px;">
-            <button id="init-eb-yes" style="flex: 1; padding: 8px; background: #4A90E2; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Analysis</button>
+            <button id="init-eb-yes" style="flex: 1; padding: 8px; background: #c6384b; color: white; border: none; border-radius: 4px; cursor: pointer;">Start Analysis</button>
             <button id="init-eb-no" style="flex: 1; padding: 8px; background: #eee; color: #333; border: none; border-radius: 4px; cursor: pointer;">Ignore</button>
         </div>
     `;
@@ -77,57 +58,39 @@ function createInitialModal() {
     document.body.appendChild(modal);
 
     // Button Listeners
-    document.getElementById('init-eb-yes').onclick = async () => { // Changed to async
+    document.getElementById('init-eb-yes').onclick = async () => {
+        const description = modal.querySelector('div');
+        const buttonContainer = modal.querySelector('div:last-of-type');
+        
+        // Hide existing UI elements
+        description.style.display = 'none';
+        buttonContainer.style.display = 'none';
+
+        // Show loading screen
+        const loadingContainer = document.createElement('div');
+        loadingContainer.style.cssText = 'text-align: center; padding: 10px;';
+        loadingContainer.innerHTML = `
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid #c6384b; border-radius: 50%; width: 24px; height: 24px; animation: modal-spin 1s linear infinite; margin: 0 auto 10px;"></div>
+            <div style="font-size: 13px; color: #666;">Analyzing document...</div>
+            <style>@keyframes modal-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
+        `;
+        modal.appendChild(loadingContainer);
+
         const response = await sendPdfUrlToWebhook(window.location.href);
         if (response && response.success) {
-            modal.remove(); // Remove initial modal
-            modalShown = true; // Set modalShown to true to prevent follow-up modal
-            createChatModal(window.location.href); // Pass current PDF URL to chat modal
+            modal.remove();
+            markIngested();
+            modalShown = true;
+            createChatModal(window.location.href);
         } else {
+            // Restore UI on failure
+            loadingContainer.remove();
+            description.style.display = 'block';
+            buttonContainer.style.display = 'flex';
             alert("Failed to start analysis: " + (response?.error || "Unknown error"));
         }
     };
     document.getElementById('init-eb-no').onclick = () => modal.remove();
-}
-
-// Function to create and inject the follow-up modal
-function showFollowUpModal() {
-    const modal = document.createElement('div');
-    modal.id = "gem-reader-followup";
-    modal.style.cssText = `
-        position: fixed;
-        bottom: 10px;
-        right: 30px;
-        width: 280px;
-        padding: 20px;
-        background: #ffffff;
-        border-left: 5px solid #4A90E2;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-        z-index: 1000000;
-        border-radius: 4px;
-        font-family: sans-serif;
-    `;
-
-    modal.innerHTML = `
-        <div style="margin-bottom: 10px; font-weight: bold; color: #333;">Gem Reader: Deep Dive detected! 📚</div>
-        <div style="font-size: 13px; color: #666; margin-bottom: 15px;">
-            You have spent some time on the PDF. Would you like a summary of the key concepts covered so far?
-        </div>
-        <div style="display: flex; gap: 10px;">
-            <button id="followup-eb-yes" style="flex: 1; padding: 8px; background: #4A90E2; color: white; border: none; border-radius: 4px; cursor: pointer;">Analyze</button>
-            <button id="followup-eb-no" style="flex: 1; padding: 8px; background: #eee; color: #333; border: none; border-radius: 4px; cursor: pointer;">Ignore</button>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Button Listeners
-    document.getElementById('followup-eb-yes').onclick = async () => {
-        await sendPdfUrlToWebhook(window.location.href);
-        // alert("Analyzing..."); // Replace with your logic
-        modal.remove();
-    };
-    document.getElementById('followup-eb-no').onclick = () => modal.remove();
 }
 
 // Function to create and inject the chat modal
@@ -153,18 +116,20 @@ function createChatModal(pdfUrl) {
     `;
 
     chatModal.innerHTML = `
-        <div style="padding: 15px; background: #4A90E2; color: white; font-size: 16px; font-weight: bold; border-top-left-radius: 8px; border-top-right-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
-            Gem Reader Chat 💬
-            <button id="close-chat-modal" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">&times;</button>
+        <div style="padding: 15px; background: #c6384b; color: white; font-size: 16px; font-weight: bold; border-top-left-radius: 8px; border-top-right-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="display: flex; align-items: center; gap: 8px;">
+                <img src="${chrome.runtime.getURL('icons48.png')}" alt="Gem Reader" style="width: 24px; height: 24px;"> Gem Reader
+            </span>
+            <button id="close-chat-modal" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
         </div>
         <div id="chat-messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background: #f9f9f9; border-bottom: 1px solid #eee;">
-            <div style="margin-bottom: 10px; padding: 8px; background: #e0f7fa; border-radius: 5px;">
-                Hello! I'm your Gem Reader assistant. Ask me anything about this PDF.
+            <div style="margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;">
+                Hello! I'm your personal assistant. Ask me anything about this PDF.
             </div>
         </div>
         <div style="padding: 15px; display: flex; border-top: 1px solid #eee;">
             <input type="text" id="chat-input" placeholder="Ask a question..." style="flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; margin-right: 10px; font-size: 13px; font-family: inherit;">
-            <button id="send-chat-message" style="padding: 10px 15px; background: #4A90E2; color: white; border: none; border-radius: 5px; cursor: pointer;">Send</button>
+            <button id="send-chat-message" style="padding: 10px 15px; background: #c6384b; color: white; border: none; border-radius: 5px; cursor: pointer;">Send</button>
         </div>
     `;
 
@@ -176,13 +141,42 @@ function createChatModal(pdfUrl) {
     const sendButton = document.getElementById('send-chat-message');
     const chatMessages = document.getElementById('chat-messages');
 
+    // Fetch and display chat history for this PDF
+    (async function loadHistory() {
+        try {
+            const historyResponse = await chrome.runtime.sendMessage({
+                type: 'getChatHistory',
+                url: pdfUrl
+            });
+
+            if (historyResponse && historyResponse.success && historyResponse.history) {
+                historyResponse.history.forEach(item => {
+                    // Add User Query
+                    const userDiv = document.createElement('div');
+                    userDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; border-radius: 5px; text-align: right;';
+                    userDiv.textContent = item.query;
+                    chatMessages.appendChild(userDiv);
+
+                    // Add Bot Response
+                    const botDiv = document.createElement('div');
+                    botDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;';
+                    botDiv.innerHTML = marked.parse(item.response);
+                    chatMessages.appendChild(botDiv);
+                });
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } catch (err) {
+            console.error("Error loading chat history:", err);
+        }
+    })();
+
     async function sendMessage() {
         const query = chatInput.value.trim();
         if (!query) return;
 
         // Display user message
         const userMessageDiv = document.createElement('div');
-        userMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #dcf8c6; border-radius: 5px; text-align: right;';
+        userMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; border-radius: 5px; text-align: right;';
         userMessageDiv.textContent = query;
         chatMessages.appendChild(userMessageDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
@@ -192,7 +186,7 @@ function createChatModal(pdfUrl) {
         // Display loading indicator
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'loading-indicator';
-        loadingDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #f0f0f0; border-radius: 5px;';
+        loadingDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;';
         loadingDiv.innerHTML = 'Gem Reader is thinking<span class="loading-dots">.</span>'; // Simple loading animation
         chatMessages.appendChild(loadingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -214,9 +208,9 @@ function createChatModal(pdfUrl) {
             loadingDiv.remove(); // Remove loading indicator
 
             const botMessageDiv = document.createElement('div');
-            botMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #e0f7fa; border-radius: 5px;';
+            botMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;';
             if (response && response.success && response.answer) {
-                botMessageDiv.innerHTML = formatMarkdown(response.answer);
+                botMessageDiv.innerHTML = marked.parse(response.answer);
             } else {
                 botMessageDiv.textContent = "Sorry, I couldn't get an answer. " + (response?.error || "Please try again.");
             }
@@ -225,7 +219,7 @@ function createChatModal(pdfUrl) {
             clearInterval(loadingInterval); // Stop loading animation
             loadingDiv.remove(); // Remove loading indicator
             const errorMessageDiv = document.createElement('div');
-            errorMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #ffebee; color: #d32f2f; border-radius: 5px;';
+            errorMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; color: #d32f2f; border-radius: 5px;';
             errorMessageDiv.textContent = `Error: ${error.message}`;
             chatMessages.appendChild(errorMessageDiv);
         }
@@ -240,19 +234,99 @@ function createChatModal(pdfUrl) {
     });
 }
 
+// Listen for messages from the background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!isPDF()) {
+        createUnsupportedModal();
+    } else if (message.type === 'openChatModal') {
+        (async () => {
+            const ingested = await isIngested();
+            // Close initialModal if it's open
+            const initialModal = document.getElementById('gem-reader-popup');
+            if (initialModal) {
+                initialModal.remove();
+            }
+
+            if (ingested && !document.getElementById('gem-reader-chat-modal')) {
+                console.log("Document already ingested. Opening chat modal...");
+                createChatModal(window.location.href);
+            } else if (!ingested) {
+                console.log("Document not ingested. Opening initial modal...");
+                createInitialModal();
+            }
+        })();
+    }
+});
+
+function createUnsupportedModal() {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;    width: 280px;
+        padding: 20px;
+        background: #ffffff;
+        border-left: 5px solid #c6384b;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        z-index: 1000000;
+        border-radius: 4px;
+        font-family: sans-serif;
+    `;
+    modal.innerHTML = `
+        <span style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 16px; font-weight: bold; color: #c6384b;">
+            <img src="${chrome.runtime.getURL('icons48.png')}" alt="Gem Reader" style="width: 24px; height: 24px;"> Gem Reader
+        </span>
+        <div style="font-size: 13px; color: #666;">
+            Oops! This extension only works on PDF files.
+        </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => modal.remove(), 5000); // Auto-remove after 5 seconds
+}
+
+function markIngested() {
+    const key = window.location.href;
+    const data = {
+        ingested: "true",
+        timestamp: Date.now() // Helpful for debugging/cache clearing
+    };
+    
+    chrome.storage.local.set({ [key]: data }, () => {
+        console.log(`Document marked as ingested: ${window.location.href}`);
+    });
+}
+
+/**
+ * Checks if the document is ingested by verifying the specific property
+ */
+function isIngested() {
+    try {
+        return new Promise((resolve) => {
+            const key = window.location.href;
+            chrome.storage.local.get([key], (result) => {
+                const entry = result[key];
+                // Returns true only if the entry exists and the property matches "true"
+                resolve(!!(entry && entry.ingested === "true"));
+            });
+        });
+    } catch (error) {
+        console.error("Error checking if document is ingested:", error);
+        return false;
+    }
+    
+}
+
 // Main initialization
 if (isPDF()) {
     console.log("PDF detected. Tracking scroll depth...");
-    createInitialModal();
-
-    // This timeout will now only trigger the follow-up modal if the initial modal was ignored.
-    // If "Start Analysis" is clicked, modalShown is set to true, preventing this.
-    setTimeout(() => { 
-        if (!modalShown) {
-            modalShown = true;
-            const initialModal = document.getElementById('gem-reader-popup');
-            if (initialModal) initialModal.remove();
-            showFollowUpModal();
+    (async () => {
+        const ingested = await isIngested();
+        if (ingested) {
+            console.log("Document already ingested. Opening chat modal...");
+            createChatModal(window.location.href);
+        } else {
+            console.log("Document not ingested. Opening initial modal...");
+            createInitialModal();
         }
-    }, 60000); // 1 minute
+    })();
 }

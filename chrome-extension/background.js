@@ -1,3 +1,10 @@
+chrome.action.onClicked.addListener((tab) => {
+    // When the extension icon is clicked, send a message to the content script in the active tab
+    if (tab.id) {
+        chrome.tabs.sendMessage(tab.id, { type: 'openChatModal' });
+    }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'sendWebhook' && message.url) {
         const webhook = 'http://localhost:5000/ingest/pdf?train=false';
@@ -47,6 +54,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         })
         .catch((error) => {
             console.error('Chat generation request failed:', error);
+            sendResponse({ success: false, error: error.message });
+        });
+
+        return true; // Keep the message channel open for async response
+    } else if (message?.type === 'getChatHistory' && message.url) {
+        const historyUrl = `http://localhost:5000/chat/history?url=${encodeURIComponent(message.url)}`;
+
+        fetch(historyUrl)
+        .then((response) => {
+            if (!response.ok) {
+                throw new Error(`${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then((data) => {
+            sendResponse(data);
+        })
+        .catch((error) => {
+            console.error('Chat history fetch failed:', error);
             sendResponse({ success: false, error: error.message });
         });
 
