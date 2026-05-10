@@ -12,6 +12,7 @@ from sqlalchemy import text
 from database import db
 import vertexai
 import re
+from .search import fetch_search_results
 
 vertexai.init(project="gem-reader", location="asia-south1")
 
@@ -53,41 +54,8 @@ def vector_search():
         results = []
 
         for query_text in queries:
-            if not isinstance(query_text, str) or not query_text.strip():
-                continue
+            search_results = fetch_search_results(query_text, current_model_id, current_model_name, url_filter)
 
-            # Generate embedding for the query
-            query_embedding = embedding_generator.generate_embeddings([query_text.strip()])
-            if not query_embedding or 'predictions' not in query_embedding or not query_embedding['predictions']:
-                continue
-
-            query_vector = query_embedding['predictions'][0]
-            
-            # Unwrap if the embedding is nested in an extra array
-            if isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], (list, tuple)):
-                query_vector = query_vector[0]
-
-            # Build search query with model consistency filters
-            search_query = """
-                SELECT id, text, page_number, keywords, 
-                    1 - (embedding <=> CAST(:query_vector AS vector)) AS similarity
-                FROM embeddings
-                WHERE model_id = :model_id AND model_display_name = :model_name
-            """
-            params = {
-                'query_vector': query_vector,
-                'model_id': current_model_id,
-                'model_name': current_model_name
-            }
-
-            if url_filter:
-                search_query += " AND url = :url"
-                params['url'] = url_filter
-
-            search_query += " ORDER BY embedding <=> CAST(:query_vector AS vector) LIMIT 5"
-
-            # Perform vector search in DB (cosine similarity)
-            search_results = db.session.execute(text(search_query), params).fetchall()
             matches = [{
                 "text": row[1],
                 "page_number": row[2]

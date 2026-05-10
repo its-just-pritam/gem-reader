@@ -9,6 +9,27 @@ function isPDF() {
            window.location.pathname.endsWith('.pdf');
 }
 
+/**
+ * A lightweight markdown parser to convert basic MD syntax to HTML.
+ * Handles headers, bold, italics, code snippets, and simple lists.
+ */
+function formatMarkdown(text) {
+    if (!text) return "";
+    return text
+        // Headers (using smaller heading tags for the chat UI)
+        .replace(/^### (.*$)/gim, '<h4 style="margin: 8px 0 4px; color: #333;">$1</h4>')
+        .replace(/^## (.*$)/gim, '<h5 style="margin: 10px 0 5px; color: #333;">$1</h5>')
+        .replace(/^# (.*$)/gim, '<h6 style="margin: 12px 0 6px; color: #333;">$1</h6>')
+        // Formatting
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // Code and Lists
+        .replace(/`(.*?)`/g, '<code style="background: rgba(0,0,0,0.05); padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>')
+        .replace(/^\s*[\-\*]\s+(.*)$/gim, '<div style="display: list-item; list-style-type: disc; margin-left: 20px; margin-bottom: 4px;">$1</div>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+}
+
 // Sends the current PDF URL to the webhook through the extension background worker
 function sendPdfUrlToWebhook(pdfUrl) {
     return new Promise((resolve) => {
@@ -172,7 +193,7 @@ function createChatModal(pdfUrl) {
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'loading-indicator';
         loadingDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #f0f0f0; border-radius: 5px;';
-        loadingDiv.innerHTML = 'Gem Reader is thinking <span class="loading-dots">.</span>'; // Simple loading animation
+        loadingDiv.innerHTML = 'Gem Reader is thinking<span class="loading-dots">.</span>'; // Simple loading animation
         chatMessages.appendChild(loadingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -195,7 +216,7 @@ function createChatModal(pdfUrl) {
             const botMessageDiv = document.createElement('div');
             botMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #e0f7fa; border-radius: 5px;';
             if (response && response.success && response.answer) {
-                botMessageDiv.innerHTML = response.answer; // Use innerHTML for markdown
+                botMessageDiv.innerHTML = formatMarkdown(response.answer);
             } else {
                 botMessageDiv.textContent = "Sorry, I couldn't get an answer. " + (response?.error || "Please try again.");
             }

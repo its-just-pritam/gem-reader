@@ -36,7 +36,7 @@ class PDFEmbeddingGenerator:
         auth_request = google.auth.transport.requests.Request()
         credentials.refresh(auth_request)
 
-        batch_size = 40  # Process in batches to avoid 413 errors and payload limits
+        batch_size = 50  # Process in batches to avoid 413 errors and payload limits
         final_result = {}
         all_predictions = []
 

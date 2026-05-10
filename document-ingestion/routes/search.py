@@ -45,41 +45,8 @@ def vector_search():
         results = []
 
         for query_text in queries:
-            if not isinstance(query_text, str) or not query_text.strip():
-                continue
+            search_results = fetch_search_results(query_text, current_model_id, current_model_name, url_filter)
 
-            # Generate embedding for the query
-            query_embedding = embedding_generator.generate_embeddings([query_text.strip()])
-            if not query_embedding or 'predictions' not in query_embedding or not query_embedding['predictions']:
-                continue
-
-            query_vector = query_embedding['predictions'][0]
-            
-            # Unwrap if the embedding is nested in an extra array
-            if isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], (list, tuple)):
-                query_vector = query_vector[0]
-
-            # Build search query with model consistency filters
-            search_query = """
-                SELECT id, text, page_number, keywords, 
-                    1 - (embedding <=> CAST(:query_vector AS vector)) AS similarity
-                FROM embeddings
-                WHERE model_id = :model_id AND model_display_name = :model_name
-            """
-            params = {
-                'query_vector': query_vector,
-                'model_id': current_model_id,
-                'model_name': current_model_name
-            }
-
-            if url_filter:
-                search_query += " AND url = :url"
-                params['url'] = url_filter
-
-            search_query += " ORDER BY embedding <=> CAST(:query_vector AS vector) LIMIT 10"
-
-            # Perform vector search in DB (cosine similarity)
-            search_results = db.session.execute(text(search_query), params).fetchall()
             matches = [{
                 "id": row[0],
                 "text": row[1],
@@ -100,3 +67,80 @@ def vector_search():
 
     except Exception as e:
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+
+
+def fetch_search_results(query_text, current_model_id, current_model_name, url_filter):
+    if not isinstance(query_text, str) or not query_text.strip():
+        return []
+
+    # Generate embedding for the query
+    query_embedding = embedding_generator.generate_embeddings([query_text.strip()])
+    if not query_embedding or 'predictions' not in query_embedding or not query_embedding['predictions']:
+        return []
+
+    query_vector = query_embedding['predictions'][0]
+    
+    # Unwrap if the embedding is nested in an extra array
+    if isinstance(query_vector, list) and len(query_vector) > 0 and isinstance(query_vector[0], (list, tuple)):
+        query_vector = query_vector[0]
+    # Handle case where Vertex AI returns a dictionary with 'values'
+    elif isinstance(query_vector, dict) and 'values' in query_vector:
+        query_vector = query_vector['values']
+
+    # Perform vector search in DB (cosine similarity)
+    print(f"+++++++Performing vector search for query: '{query_text}' with model_id: {current_model_id} and model_display_name: {current_model_name}")
+    search_query, params = cosine_match_query(query_vector, current_model_id, current_model_name, url_filter)
+    search_results = db.session.execute(text(search_query), params).fetchall()
+
+    if(len(search_results) == 0):
+        # Perform vector search in DB (euclidean distance)
+        print(f"+++++++No results found with cosine similarity, performing euclidean distance search for query: '{query_text}'")
+        search_query, params = euclidean_match_query(query_vector, current_model_id, current_model_name, url_filter)
+        search_results = db.session.execute(text(search_query), params).fetchall()
+
+    return search_results
+
+
+def cosine_match_query(query_vector, current_model_id, current_model_name, url_filter):
+    # Build search query with model consistency filters
+    search_query = """
+        SELECT id, text, page_number, keywords, 
+            1 - (embedding <=> CAST(:query_vector AS vector)) AS similarity
+        FROM embeddings
+        WHERE model_id = :model_id AND model_display_name = :model_name
+    """
+    params = {
+        'query_vector': query_vector,
+        'model_id': current_model_id,
+        'model_name': current_model_name
+    }
+
+    if url_filter:
+        search_query += " AND url = :url"
+        params['url'] = url_filter
+
+    search_query += " ORDER BY embedding <=> CAST(:query_vector AS vector) LIMIT 10"
+
+    return search_query, params
+
+def euclidean_match_query(query_vector, current_model_id, current_model_name, url_filter):
+    # Build search query with model consistency filters
+    search_query = """
+        SELECT id, text, page_number, keywords, 
+            1 - (embedding <-> CAST(:query_vector AS vector)) AS similarity
+        FROM embeddings
+        WHERE model_id = :model_id AND model_display_name = :model_name
+    """
+    params = {
+        'query_vector': query_vector,
+        'model_id': current_model_id,
+        'model_name': current_model_name
+    }
+
+    if url_filter:
+        search_query += " AND url = :url"
+        params['url'] = url_filter
+
+    search_query += " ORDER BY embedding <-> CAST(:query_vector AS vector) LIMIT 10"
+
+    return search_query, params

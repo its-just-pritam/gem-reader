@@ -185,7 +185,7 @@ def chunk_text_by_structure(
         return [], [], []
 
     # Sliding window with 20% overlap
-    overlap_words = int(max_words * 0.2)
+    overlap_words = int(max_words * 0.1)
     step = max_words - overlap_words
     chunks = []
     keywords = []
