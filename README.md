@@ -4,7 +4,7 @@
 
 # Gem Reader 📖
 
-Gem Reader is a powerful, AI-driven document assistant that transforms how you interact with PDF files. By leveraging Retrieval-Augmented Generation (RAG), Gem Reader detects when you're reading a PDF and provides a dedicated chat interface to help you summarize content, extract insights, and ask complex questions—all with accurate page references.
+Gem Reader (chrome-extension) is a powerful, AI-driven document assistant that transforms how you interact with PDF files in your Chrome browser. By leveraging Retrieval-Augmented Generation (RAG), Gem Reader detects when you're reading a PDF and provides a dedicated chat interface to help you summarize content, extract insights, and ask complex questions—all with accurate page references.
 
 ## 🌟 Key Features
 
