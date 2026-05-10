@@ -35,6 +35,7 @@ class ChatHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     parent_query_id = db.Column(db.Integer, db.ForeignKey('chat_history.id'), nullable=True)  # For threading conversations
     query = db.Column(db.Text)
+    enhanced_query = db.Column(db.Text, nullable=True)  # Store the enhanced query for reference
     response = db.Column(db.Text)
     embedding_model_id = db.Column(db.String(255))
     embedding_model_display_name = db.Column(db.String(255))

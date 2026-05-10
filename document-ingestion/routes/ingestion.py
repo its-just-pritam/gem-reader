@@ -20,11 +20,20 @@ from embeddings import PDFEmbeddingGenerator
 from config import FLASK_CONFIG
 from models import Embedding
 from database import db
+from vertexai.generative_models import GenerativeModel
+import vertexai
+from config import GCP_CONFIG
+from prompts.summary_prompts import SUMMARY_PROMPT_TEMPLATE
+
+vertexai.init(project=GCP_CONFIG["PROJECT_NAME"], location=GCP_CONFIG["LOCATION"])
 
 ingestion_bp = Blueprint("ingestion", __name__)
 
 # Initialize the embedding generator
 embedding_generator = PDFEmbeddingGenerator()
+
+# Initialize the LLM
+llm = GenerativeModel(GCP_CONFIG["LLM_MODEL_NAME"])
 
 @ingestion_bp.route("/ingest/pdf", methods=["POST"])
 def embed_from_url():
@@ -101,15 +110,26 @@ def embed_from_url():
         if not text_elements:
             os.remove(filepath)
             return jsonify({"error": "No text extracted from PDF"}), 400
-
+            
         # Chunk the text intelligently
-        chunks, keywords, pages = chunk_text_by_structure(text_elements, max_words=300)
+        chunks, keywords, pages = chunk_text_by_structure(text_elements, max_words=FLASK_CONFIG["CHUNK_SIZE"])
         print(f"+++++++Extracted {len(text_elements)} text elements, created {len(chunks)} chunks.")
         print(f"+++++++Pages found: {pages}")
 
         if not chunks:
             os.remove(filepath)
             return jsonify({"error": "Failed to create chunks"}), 400
+
+        prompt = SUMMARY_PROMPT_TEMPLATE.format(context=text_elements, response_size=FLASK_CONFIG["CHUNK_SIZE"])
+        summary = llm.generate_content(prompt)
+        if(summary and summary.text and len(summary.text.strip()) > FLASK_CONFIG["CHUNK_SIZE"]):
+            prompt = SUMMARY_PROMPT_TEMPLATE.format(context=text_elements, response_size=(FLASK_CONFIG["CHUNK_SIZE"]-50))
+            summary = llm.generate_content(prompt)
+        print(f"+++++++Generated summary for PDF at URL: {url}")
+
+        chunks.append(summary.text)  # Add the summary as an additional chunk
+        keywords.append([])  # No keywords for the summary chunk
+        pages.append(0)  # Page number 0 for the summary chunk
 
         # Generate embeddings
         embeddings = embedding_generator.generate_embeddings(chunks)
@@ -169,6 +189,8 @@ def embed_from_url():
         )
 
     except ValueError as e:
+        print(f"+++++++ValueError: {str(e)}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
+        print(f"+++++++ValueError: {str(e)}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500

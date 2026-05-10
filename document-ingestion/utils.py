@@ -73,7 +73,12 @@ def download_pdf_from_url(url: str, output_path: str) -> bool:
         True if successful, False otherwise
     """
     try:
-        response = requests.get(url, timeout=30, stream=True)
+        print(f"+++++++Attempting to download PDF from URL: {url}")
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/pdf,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+        response = requests.get(url, headers=headers, timeout=120, stream=True)
         response.raise_for_status()
 
         # Check if content is PDF

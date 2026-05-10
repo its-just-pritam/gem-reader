@@ -13,10 +13,12 @@ FLASK_CONFIG = {
     "PORT": 5000,
     "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/gem_reader"),
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
+    "CHUNK_SIZE": 300,  # Max words per chunk
 }
 
 # GCP/Embeddings-specific configs
 GCP_CONFIG = {
+    "PROJECT_NAME": "gem-reader",
     "PROJECT_ID": os.getenv("GCP_PROJECT_ID", "649289288067"),  # Use env vars for secrets
     "LOCATION": os.getenv("GCP_LOCATION", "asia-south1"),
     "ENDPOINT_ID": os.getenv("GCP_ENDPOINT_ID", "mg-endpoint-25701b72-8e96-47d7-a08c-c9856ada9301"),  # Replace "YOUR_ENDPOINT_ID"
@@ -24,6 +26,7 @@ GCP_CONFIG = {
     "MODEL_DISPLAY_NAME": "embeddinggemma-300m-1777627519039",
     "MODEL_ID": "937648123004583936",
     "DB_INSTANCE": "gem-reader-vector-metadata-store",
+    "LLM_MODEL_NAME": "gemini-2.5-flash",
 }
 
 # You can add more sections as needed (e.g., database, API keys)

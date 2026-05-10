@@ -9,6 +9,31 @@ function isPDF() {
            window.location.pathname.endsWith('.pdf');
 }
 
+/**
+ * Creates a copy button for chat responses with visual feedback.
+ */
+function createCopyButton(textToCopy) {
+    const button = document.createElement('button');
+    button.title = "Copy to clipboard";
+    button.style.cssText = `
+        position: absolute; bottom: 5px; left: 5px; background: #fff; border: 1px solid #ddd;
+        border-radius: 4px; cursor: pointer; padding: 4px; display: flex; align-items: center;
+        justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 10;
+    `;
+    const copyIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
+    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    
+    button.innerHTML = copyIcon;
+    button.onclick = () => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            button.innerHTML = checkIcon;
+            setTimeout(() => button.innerHTML = copyIcon, 2000);
+        });
+    };
+
+    return button;
+}
+
 // Sends the current PDF URL to the webhook through the extension background worker
 function sendPdfUrlToWebhook(pdfUrl) {
     return new Promise((resolve) => {
@@ -39,7 +64,7 @@ function createInitialModal() {
         box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         z-index: 1000000;
         border-radius: 4px;
-        font-family: sans-serif;
+        font-family: Inter;
     `;
 
     modal.innerHTML = `
@@ -71,7 +96,7 @@ function createInitialModal() {
         loadingContainer.style.cssText = 'text-align: center; padding: 10px;';
         loadingContainer.innerHTML = `
             <div style="border: 3px solid #f3f3f3; border-top: 3px solid #c6384b; border-radius: 50%; width: 24px; height: 24px; animation: modal-spin 1s linear infinite; margin: 0 auto 10px;"></div>
-            <div style="font-size: 13px; color: #666;">Analyzing document...</div>
+            <div style="font-size: 13px; color: #666;">Analyzing document</div>
             <style>@keyframes modal-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
         `;
         modal.appendChild(loadingContainer);
@@ -108,7 +133,7 @@ function createChatModal(pdfUrl) {
         box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         z-index: 1000001;
         border-radius: 8px;
-        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: Inter;
         font-size: 13px;
         display: flex;
         flex-direction: column;
@@ -124,7 +149,7 @@ function createChatModal(pdfUrl) {
         </div>
         <div id="chat-messages" style="flex-grow: 1; padding: 15px; overflow-y: auto; background: #f9f9f9; border-bottom: 1px solid #eee;">
             <div style="margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;">
-                Hello! I'm your personal assistant. Ask me anything about this PDF.
+                Hello! I'm your personal assistant. Feel free to ask me anything about this PDF.
             </div>
         </div>
         <div style="padding: 15px; display: flex; border-top: 1px solid #eee;">
@@ -159,8 +184,14 @@ function createChatModal(pdfUrl) {
 
                     // Add Bot Response
                     const botDiv = document.createElement('div');
-                    botDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;';
+                    botDiv.style.cssText = 'margin-bottom: 20px; padding: 8px 8px 30px 8px; background: #edd9dc; border-radius: 5px; position: relative;';
                     botDiv.innerHTML = marked.parse(item.response);
+
+                    const copyBtn = createCopyButton(item.response);
+                    botDiv.onmouseenter = () => copyBtn.style.opacity = '1';
+                    botDiv.onmouseleave = () => copyBtn.style.opacity = '0';
+                    botDiv.appendChild(copyBtn);
+
                     chatMessages.appendChild(botDiv);
                 });
                 chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -208,9 +239,15 @@ function createChatModal(pdfUrl) {
             loadingDiv.remove(); // Remove loading indicator
 
             const botMessageDiv = document.createElement('div');
-            botMessageDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: #edd9dc; border-radius: 5px;';
+            botMessageDiv.style.cssText = 'margin-bottom: 20px; padding: 8px 8px 30px 8px; background: #edd9dc; border-radius: 5px; position: relative;';
             if (response && response.success && response.answer) {
                 botMessageDiv.innerHTML = marked.parse(response.answer);
+                
+                const copyBtn = createCopyButton(response.answer);
+                botMessageDiv.onmouseenter = () => copyBtn.style.opacity = '1';
+                botMessageDiv.onmouseleave = () => copyBtn.style.opacity = '0';
+                botMessageDiv.appendChild(copyBtn);
+
             } else {
                 botMessageDiv.textContent = "Sorry, I couldn't get an answer. " + (response?.error || "Please try again.");
             }
@@ -270,7 +307,7 @@ function createUnsupportedModal() {
         box-shadow: 0 10px 25px rgba(0,0,0,0.3);
         z-index: 1000000;
         border-radius: 4px;
-        font-family: sans-serif;
+        font-family: Inter;
     `;
     modal.innerHTML = `
         <span style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 16px; font-weight: bold; color: #c6384b;">

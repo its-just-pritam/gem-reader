@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Gem Reader",
+    "name": "GemReader",
     "version": "1.0",
     "description": "Get a personal Gemini powered PDF Assistant.",
     "icons": {

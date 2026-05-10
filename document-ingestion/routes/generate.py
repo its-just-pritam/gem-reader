@@ -14,9 +14,11 @@ import vertexai
 import re
 from .search import fetch_search_results
 from prompts.rag_prompts import RAG_PROMPT_TEMPLATE
+from prompts.summary_prompts import QUERY_ENHANCEMENT_PROMPT_TEMPLATE
 from models import ChatHistory
+from config import GCP_CONFIG
 
-vertexai.init(project="gem-reader", location="asia-south1")
+vertexai.init(project=GCP_CONFIG["PROJECT_NAME"], location=GCP_CONFIG["LOCATION"])
 
 generate_bp = Blueprint("generate", __name__)
 
@@ -24,7 +26,7 @@ generate_bp = Blueprint("generate", __name__)
 embedding_generator = PDFEmbeddingGenerator()
 
 # Initialize the LLM
-model = GenerativeModel("gemini-2.5-flash")
+llm = GenerativeModel(GCP_CONFIG["LLM_MODEL_NAME"])
 
 @generate_bp.route("/generate", methods=["POST"])
 def vector_search():
@@ -53,11 +55,32 @@ def vector_search():
         current_model_name = embedding_generator.get_embedding_model_display_name()
         url_filter = data.get("url")
 
+        # Use db.session.query because 'query' is shadowed by a column name in the model
+        last_chat = (
+            db.session.query(ChatHistory)
+            .filter_by(url=url_filter, user_id="0")
+            .order_by(ChatHistory.created_at.desc())
+            .first()
+        )
+
+        if last_chat:
+            enhanced_queries = [
+                llm.generate_content(QUERY_ENHANCEMENT_PROMPT_TEMPLATE.format(
+                    previous_query=last_chat.query,
+                    previous_response=last_chat.response,
+                    new_query=query
+                )).text
+            for query in queries]
+        else:
+            enhanced_queries = queries
+
+
         results = []
 
-        for query_text in queries:
+        for query_text, enhanced_query_text in zip(queries, enhanced_queries):
             chat_entry = ChatHistory(
                 query=query_text,
+                enhanced_query=enhanced_query_text,
                 response="NA",  # Will be updated after generating response
                 embedding_model_id=current_model_id,
                 embedding_model_display_name=current_model_name,
@@ -66,16 +89,14 @@ def vector_search():
             )
             db.session.add(chat_entry)
 
-            search_results = fetch_search_results(query_text, current_model_id, current_model_name, url_filter)
+            search_results = fetch_search_results(enhanced_query_text, current_model_id, current_model_name, url_filter)
 
-            matches = [{
-                "text": row[1],
-                "page_number": row[2]
-            } for row in search_results]
+            # Format the context matches into a structured string for better RAG performance
+            context_text = "\n\n".join([f"Source (Page {row[2]}): {row[1]}" for row in search_results])
 
-            prompt = RAG_PROMPT_TEMPLATE.format(matches=matches, query_text=query_text, response_size=300)
+            prompt = RAG_PROMPT_TEMPLATE.format(matches=context_text, query_text=enhanced_query_text, response_size=300)
 
-            generated_response = model.generate_content(prompt)
+            generated_response = llm.generate_content(prompt)
 
             results.append({
                 "query": query_text,
