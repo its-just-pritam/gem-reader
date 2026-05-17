@@ -4,9 +4,11 @@ Global configuration for the Flask app and related modules.
 
 import os
 
-# Switch to toggle between Local and Cloud Database
-USE_CLOUD_DB = os.getenv("USE_CLOUD_DB", "false").lower() == "true"
-DB_HOST = "34.14.215.144" if USE_CLOUD_DB else "localhost"
+DB_NAME = os.getenv("DB_NAME", "gem_reader")
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+
 
 # Flask-specific configs
 FLASK_CONFIG = {
@@ -15,7 +17,7 @@ FLASK_CONFIG = {
     "DEBUG": True,
     "HOST": "0.0.0.0",
     "PORT": 5000,
-    "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL", f"postgresql://postgres:postgres@{DB_HOST}:5432/gem_reader"),
+    "SQLALCHEMY_DATABASE_URI": os.getenv("DATABASE_URL", f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"),
     "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     "CHUNK_SIZE": 2000,  # Max tokens per chunk,
     "BATCH_SIZE": 10,  # Number of chunks to process in a single batch for embedding generation
