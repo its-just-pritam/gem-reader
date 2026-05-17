@@ -19,7 +19,7 @@ services:
   app:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: Dockerfile
     container_name: gem_reader_app
     ports:
       - "5000:5000"
