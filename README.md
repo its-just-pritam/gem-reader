@@ -12,6 +12,7 @@ Gem Reader (chrome-extension) is a powerful, AI-driven document assistant that t
 - **AI-Powered Chat Assistant**: Uses Google Gemini to provide intelligent, context-aware answers.
 - **Citations & References**: Pay close attention to page numbers; the assistant references specific pages to ensure accuracy.
 - **Persistent History**: Saves your conversations locally and in the cloud so you can pick up where you left off.
+- **Rate Limiting**: Integrated protection against API abuse using Flask-Limiter.
 - **Markdown Support**: High-quality rendering of headers, lists, and code snippets in the chat interface.
 - **Vector Search**: Combines Cosine Similarity and Euclidean Distance to find the most relevant context for your questions.
 
@@ -28,9 +29,19 @@ Gem Reader (chrome-extension) is a powerful, AI-driven document assistant that t
 - **Vector Database**: PostgreSQL with the `pgvector` extension for efficient semantic search.
 - **Vertex AI Integration**: 
   - **Embedding Gemma**: Used for high-dimensional text vectorization.
-  - **Gemini Flash 2.0**: Powers the generative reasoning and response generation.
+  - **Gemini 2.5 Flash**: Powers the generative reasoning and response generation.
 
 ## 🚀 Getting Started
+
+### Run with Docker (Recommended)
+1. **Service Account**: Place your Google Cloud service account JSON key in the project root and name it `service-account.json`.
+
+2. **Launch Services**:
+   ```bash
+   cd docker
+   docker-compose up --build
+   ```
+   *This will start both the PostgreSQL database with pgvector and the Flask application.*
 
 ### Backend Setup
 1. **Database**: Ensure you have a PostgreSQL instance with the `vector` extension installed.
@@ -68,9 +79,11 @@ Gem Reader (chrome-extension) is a powerful, AI-driven document assistant that t
 │   ├── icons/             # Extension iconography
 │   ├── content.js         # UI injection and message handling
 │   └── background.js      # API orchestration
+├── docker/                # Docker Compose and environment-specific Dockerfiles
 ├── document-ingestion/    # Python Backend
 │   ├── routes/            # API endpoints (ingestion, search, chat, generate)
 │   ├── prompts/           # RAG prompt templates
+│   ├── limiter.py         # Rate limiting configuration
 │   ├── models.py          # Database schema (Embeddings, ChatHistory)
 │   ├── utils.py           # PDF processing and chunking logic
 │   └── app.py             # Flask entry point
