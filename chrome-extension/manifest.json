@@ -22,7 +22,8 @@
         "service_worker": "background.js"
     },
     "host_permissions": [
-        "http://localhost/*"
+        "http://localhost/*",
+        "https://gem-reader-backend-649289288067.asia-south1.run.app/*"
     ],
     "permissions": ["activeTab", "storage"],
     "web_accessible_resources": [

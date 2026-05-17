@@ -5,11 +5,25 @@ chrome.action.onClicked.addListener((tab) => {
     }
 });
 
+/**
+ * Configuration management
+ * The backend URL is retrieved from the manifest. Custom fields in manifest are accessible,
+ * but we provide a fallback for local development.
+ */
+const getBackendUrl = () => {
+    // Custom keys like 'backend_url' are disallowed in Manifest V3.
+    // We define the URL here directly. For a professional setup, 
+    // you might swap this using a build tool or an environment flag.
+    const PRODUCTION_URL = 'https://gem-reader-backend-649289288067.asia-south1.run.app';
+    return PRODUCTION_URL;
+};
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type === 'sendWebhook' && message.url) {
-        const webhook = 'http://localhost:5000/ingest/pdf?train=false';
+        const endpoint = new URL('/ingest/pdf', getBackendUrl());
+        endpoint.searchParams.append('train', 'false');
 
-        fetch(webhook, {
+        fetch(endpoint.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -30,9 +44,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         return true; // Keep the message channel open for async response
     } else if (message?.type === 'sendChatQuery' && message.query) {
-        const generateUrl = 'http://localhost:5000/generate';
+        const endpoint = new URL('/generate', getBackendUrl());
 
-        fetch(generateUrl, {
+        fetch(endpoint.toString(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -59,9 +73,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         return true; // Keep the message channel open for async response
     } else if (message?.type === 'getChatHistory' && message.url) {
-        const historyUrl = `http://localhost:5000/chat/history?url=${encodeURIComponent(message.url)}`;
+        const endpoint = new URL('/chat/history', getBackendUrl());
+        endpoint.searchParams.append('url', message.url);
 
-        fetch(historyUrl)
+        fetch(endpoint.toString())
         .then((response) => {
             if (!response.ok) {
                 throw new Error(`${response.status} ${response.statusText}`);
