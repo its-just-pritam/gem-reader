@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: pgvector/pgvector:0.6.0-pg16
@@ -18,22 +16,26 @@ services:
       timeout: 5s
       retries: 5
 
-  # app:
-  #   build: .
-  #   container_name: gem_reader_app
-  #   ports:
-  #     - "5000:5000"
-  #   environment:
-  #     DATABASE_URL: postgresql://postgres:postgres@db:5432/gem_reader
-  #     GCP_PROJECT_ID: ${GCP_PROJECT_ID}
-  #     GCP_LOCATION: ${GCP_LOCATION}
-  #     GCP_ENDPOINT_ID: ${GCP_ENDPOINT_ID}
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   volumes:
-  #     - .:/app
-  #   command: python app.py
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: gem_reader_app
+    ports:
+      - "5000:5000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/gem_reader
+      GCP_PROJECT_ID: gem-reader
+      GCP_LOCATION: asia-south1
+      GCP_ENDPOINT_ID: mg-endpoint-25701b72-8e96-47d7-a08c-c9856ada9301
+      GOOGLE_APPLICATION_CREDENTIALS: /app/resources/gem-reader-1cd59f64b28d.json
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ..:/app
+      - ../service-account.json:/app/service-account.json
+    command: python app.py
 
 volumes:
   postgres_data:

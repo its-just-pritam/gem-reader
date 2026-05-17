@@ -17,6 +17,7 @@ from prompts.rag_prompts import RAG_PROMPT_TEMPLATE
 from prompts.summary_prompts import QUERY_ENHANCEMENT_PROMPT_TEMPLATE
 from models import ChatHistory
 from config import GCP_CONFIG
+from limiter import limiter
 
 vertexai.init(project=GCP_CONFIG["PROJECT_NAME"], location=GCP_CONFIG["LOCATION"])
 
@@ -29,6 +30,7 @@ embedding_generator = PDFEmbeddingGenerator()
 llm = GenerativeModel(GCP_CONFIG["LLM_MODEL_NAME"])
 
 @generate_bp.route("/generate", methods=["POST"])
+@limiter.limit("2 per 5 seconds")
 def vector_search():
     """
     API endpoint to perform vector search.
@@ -112,4 +114,5 @@ def vector_search():
         }), 200
 
     except Exception as e:
+        print(f"------- Error in /generate endpoint: {str(e)}")
         return jsonify({"error": f"Internal server error: {str(e)}"}), 500

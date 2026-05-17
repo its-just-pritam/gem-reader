@@ -10,7 +10,7 @@ from typing import List, Dict, Any
 import PyPDF2
 from google.cloud import aiplatform
 from google.oauth2 import service_account
-from config import GCP_CONFIG
+from config import GCP_CONFIG, FLASK_CONFIG
 import json
 import requests
 import google.auth
@@ -32,11 +32,12 @@ class PDFEmbeddingGenerator:
 
         # Automatically get credentials (equivalent to gcloud auth print-access-token)
         # This looks for credentials set by 'gcloud auth application-default login'
-        credentials, project = google.auth.default()
+        scopes = ['https://www.googleapis.com/auth/cloud-platform']
+        credentials, project = google.auth.default(scopes=scopes)
         auth_request = google.auth.transport.requests.Request()
         credentials.refresh(auth_request)
 
-        batch_size = 50  # Process in batches to avoid 413 errors and payload limits
+        batch_size = FLASK_CONFIG["BATCH_SIZE"]  # Reduced to stay within the 2048 aggregate token limit per request
         final_result = {}
         all_predictions = []
 

@@ -9,6 +9,7 @@ import requests
 import nltk
 from nltk.tokenize import word_tokenize
 from nltk.tag import pos_tag
+from config import FLASK_CONFIG
 
 # Download required NLTK data (averaged_perceptron_tagger and punkt)
 try:
@@ -28,6 +29,29 @@ ALLOWED_EXTENSIONS = {"pdf"}
 def allowed_file(filename: str) -> bool:
     """Check if the uploaded file is a PDF."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def sanitize_text(text: str) -> str:
+    """
+    Detects and fixes common PDF encoding artifacts.
+    
+    - Removes null bytes (\x00)
+    - Strips CID glyph mappings like /1/2/3/
+    - Normalizes whitespace
+    """
+    if not text:
+        return ""
+        
+    # Remove null bytes which break many text processors
+    text = text.replace('\x00', '')
+    
+    # Remove CID/glyph indices patterns like /1/2/3/4 which are not human readable
+    text = re.sub(r'(/[0-9]+)+', ' ', text)
+    
+    # Normalize multiple whitespaces and newlines into single spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    return text.strip()
 
 
 def extract_keywords(text: str) -> List[str]:
@@ -135,7 +159,10 @@ def extract_text_with_structure(pdf_path: str) -> List[Dict[str, str]]:
 
                 for para in paragraphs:
                     para = para.strip()
-                    if not para:
+                    
+                    # Sanitize the text before processing
+                    para = sanitize_text(para)
+                    if not para or len(para) < 2:
                         continue
 
                     # Simple heuristic: short lines with few words might be headings
@@ -156,52 +183,52 @@ def extract_text_with_structure(pdf_path: str) -> List[Dict[str, str]]:
 
 
 def chunk_text_by_structure(
-    text_elements: List[Dict[str, str]], max_words: int = 300
-) -> tuple:
+    text_elements: List[Dict[str, str]]) -> tuple:
     """
-    Chunk text with 20% overlap between consecutive chunks, ensuring at least one chunk per page.
+    Chunk text with 10% overlap between consecutive chunks using character count.
 
     Args:
         text_elements: List of text elements with type, content, and page_num
-        max_words: Maximum words per chunk (default 300)
 
     Returns:
         Tuple of (chunks, keywords, pages) where:
-        - chunks: List of text chunks with 20% overlap and at least one per page
+        - chunks: List of text chunks with 10% overlap
         - keywords: List of keyword lists (one per chunk with important nouns)
         - pages: List of page numbers corresponding to each chunk
     """
-    # Collect all words with their page numbers and track page start indices
-    all_words = []
-    page_starts = {}  # page_num -> start index in all_words
-    current_index = 0
+    max_chars = FLASK_CONFIG["CHUNK_SIZE"]
+    
+    # Collect all text with their page numbers and track page start indices
+    all_text = ""
+    char_page_map = []
+    page_starts = {}  # page_num -> start index in all_text
 
     for element in text_elements:
         text = element["text"].strip()
         if text:
-            words = text.split()
             page_num = element["page_num"]
             if page_num not in page_starts:
-                page_starts[page_num] = current_index
-            all_words.extend([(word, page_num) for word in words])
-            current_index += len(words)
+                page_starts[page_num] = len(all_text)
+            
+            text_to_add = text + " "
+            all_text += text_to_add
+            char_page_map.extend([page_num] * len(text_to_add))
 
-    if not all_words:
+    if not all_text:
         return [], [], []
 
-    # Sliding window with 20% overlap
-    overlap_words = int(max_words * 0.1)
-    step = max_words - overlap_words
+    # Sliding window with 10% overlap based on characters
+    overlap_chars = int(max_chars * 0.1)
+    step = max_chars - overlap_chars
     chunks = []
     keywords = []
     pages = []
     chunk_start_pages = set()  # Track pages that have chunks starting on them
 
-    for i in range(0, len(all_words), step):
-        chunk_words_with_pages = all_words[i : i + max_words]
-        if chunk_words_with_pages:
-            chunk_text = " ".join(word for word, _ in chunk_words_with_pages).strip()
-            chunk_page = chunk_words_with_pages[0][1]  # Page of first word
+    for i in range(0, len(all_text), step):
+        chunk_text = all_text[i : i + max_chars].strip()
+        if chunk_text:
+            chunk_page = char_page_map[i]
             chunk_keywords = extract_keywords(chunk_text)
 
             chunks.append(chunk_text)
@@ -212,16 +239,17 @@ def chunk_text_by_structure(
     # Ensure at least one chunk per page
     for page_num, start_idx in page_starts.items():
         if page_num not in chunk_start_pages:
-            # Add a chunk starting from this page
-            chunk_words_with_pages = all_words[start_idx : start_idx + max_words]
-            if chunk_words_with_pages:
-                chunk_text = " ".join(word for word, _ in chunk_words_with_pages).strip()
+            chunk_text = all_text[start_idx : start_idx + max_chars].strip()
+            if chunk_text:
                 chunk_keywords = extract_keywords(chunk_text)
-
                 chunks.append(chunk_text)
                 keywords.append(chunk_keywords)
                 pages.append(page_num)
 
-    chunks = [chunk.replace('\x00', '') for chunk in chunks]
+    # Log results for debugging
+    if chunks:
+        print(f"+++++++First chunk sample: {chunks[0][:100]}...")
+        chunk_sizes = [len(chunk) for chunk in chunks]
+        print(f"+++++++Final chunk sizes (in characters): {chunk_sizes}")
 
     return chunks, keywords, pages

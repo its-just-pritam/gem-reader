@@ -2,10 +2,12 @@ from flask import Blueprint, request, jsonify
 from models import ChatHistory
 from database import db
 from sqlalchemy import text
+from limiter import limiter
 
 chat_bp = Blueprint("chat", __name__)
 
 @chat_bp.route("/chat/history", methods=["GET"])
+@limiter.limit("2 per 5 seconds")
 def get_chat_history():
     """List all previous chats for a specific URL and user."""
     url = request.args.get("url")

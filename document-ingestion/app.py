@@ -12,10 +12,12 @@ from config import FLASK_CONFIG
 from database import db
 from sqlalchemy import text
 from migrations import run_migrations
+from limiter import limiter
 
 app = Flask(__name__)
 app.config.update(FLASK_CONFIG)
 db.init_app(app)
+limiter.init_app(app)
 
 # Import routes
 from routes.health import health_bp

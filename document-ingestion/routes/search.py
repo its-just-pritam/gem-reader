@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify
 from embeddings import PDFEmbeddingGenerator
 from sqlalchemy import text
 from database import db
+from limiter import limiter
 
 search_bp = Blueprint("search", __name__)
 
@@ -16,6 +17,7 @@ search_bp = Blueprint("search", __name__)
 embedding_generator = PDFEmbeddingGenerator()
 
 @search_bp.route("/search", methods=["POST"])
+@limiter.limit("2 per 5 seconds")
 def vector_search():
     """
     API endpoint to perform vector search.
